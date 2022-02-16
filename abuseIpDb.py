@@ -7,7 +7,7 @@ from abuseIpDbClient import AbuseIpDb
 def log_to_file(file, data):
     with open(file,'a') as logfile:
         data['app'] = "abuseipDB"
-        logfile.write(str(data))
+        logfile.write(str(data).replace("'",'"').replace("True","true").replace("False","false"))
         logfile.write('\n')
 
 
