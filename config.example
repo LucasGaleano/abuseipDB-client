@@ -1,0 +1,6 @@
+[abuseipDB]
+token = token_key
+
+[netbox]
+token = token_key
+host = https://example.com

@@ -1,8 +1,9 @@
 #! /usr/bin/env python3
 
-from http import client
 from time import sleep
 from abuseIpDbClient import AbuseIpDb
+import configparser
+import pynetbox
 
 def log_to_file(file, data):
     with open(file,'a') as logfile:
@@ -16,9 +17,32 @@ def print_errors(result):
         print(f"[-] {error['detail']}") 
         log_to_file('log.json',error) 
 
+def has_reputation(reportedIp):
+    return reportedIp['abuseConfidenceScore'] > 0
 
-with open('abuseIpDb.key','r') as key:
-    abuseipdb = AbuseIpDb(key.readline().strip())
+def add_netbox_info(reportedIp):
+    print(f"[+] Checking {reportedIp['ipAddress']} in Netbox.")
+    netboxRequest = nb.ipam.ip_addresses.filter(address=reportedIp['ipAddress'])
+    ips = list(netboxRequest)
+    if ips:
+        ip = ips[0]
+        reportedIp['netbox'] = {}
+        reportedIp['netbox']['description'] = ip.description
+        reportedIp['netbox']['dns_name'] = ip.dns_name
+        reportedIp['netbox']['status'] = ip.status
+        reportedIp['netbox']['tenant'] = ip.tenant
+        reportedIp['netbox']['created'] = ip.created
+        reportedIp['netbox']['test'] = ip.address
+    return reportedIp
+
+
+config = configparser.ConfigParser()
+config.read('config')
+
+if 'netbox' in config:
+    nb = pynetbox.api(config['netbox']['host'], token=config['netbox']['token'].strip())
+
+abuseipdb = AbuseIpDb(config['abuseipDB']['token'].strip())
 
 while True:
     with open('cidr.txt','r') as cidrs:
@@ -32,13 +56,15 @@ while True:
                 result = result['data']
                 log_to_file('log.json', result)
                 for reportedIp in result['reportedAddress']:
-                    if reportedIp['abuseConfidenceScore'] > 0:
+                    if has_reputation(reportedIp):
                         print(f"[-] Reported IP {reportedIp['ipAddress']} found.")
                         reportedIpDetails = abuseipdb.check(reportedIp['ipAddress'])
                         if 'errors' in reportedIpDetails:
                             print_errors(reportedIpDetails)
                         else:
-                            log_to_file('log.json', reportedIpDetails['data'])
+                            if 'netbox' in config:
+                                reportedIpDetails = add_netbox_info(reportedIpDetails['data'])
+                            log_to_file('log.json', reportedIpDetails)
                             
     sleepTime = 60*60*24 
     print(f"[+] Waiting {sleepTime} seconds.")
