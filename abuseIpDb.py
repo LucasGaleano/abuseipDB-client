@@ -4,6 +4,7 @@ from time import sleep
 from abuseIpDbClient import AbuseIpDb
 import configparser
 import pynetbox
+import ipaddress
 
 def log_to_file(file, data):
     with open(file,'a') as logfile:
@@ -11,6 +12,15 @@ def log_to_file(file, data):
         logfile.write(str(data).replace("'",'"').replace("True","true").replace("False","false"))
         logfile.write('\n')
 
+def split_cidr(cidr, minMask):
+    cidr = ipaddress.IPv4Network(cidr.strip('\n'))
+    if int(minMask) <= cidr.prefixlen:
+        return [cidr.with_prefixlen]
+    try:   
+        return cidr.subnets(new_prefix=int(minMask))
+    except Exception as e:
+        print(cidr,e)
+        return []
 
 def print_errors(result):
     for error in result['errors']:
@@ -49,22 +59,23 @@ while True:
         for cidr in cidrs.readlines():
             cidr = cidr.strip('\n')
             print(f"[+] Checking {cidr}")
-            result = abuseipdb.check_block(cidr)
-            if 'errors' in result:
-                print_errors(result)
-            else:
-                result = result['data']
-                log_to_file('log.json', result)
-                for reportedIp in result['reportedAddress']:
-                    if has_reputation(reportedIp):
-                        print(f"[-] Reported IP {reportedIp['ipAddress']} found.")
-                        reportedIpDetails = abuseipdb.check(reportedIp['ipAddress'])
-                        if 'errors' in reportedIpDetails:
-                            print_errors(reportedIpDetails)
-                        else:
-                            if 'netbox' in config:
-                                reportedIpDetails = add_netbox_info(reportedIpDetails['data'])
-                            log_to_file('log.json', reportedIpDetails)
+            for cidr24 in split_cidr(cidr, '24'):
+                result = abuseipdb.check_block(cidr24)
+                if 'errors' in result:
+                    print_errors(result)
+                else:
+                    result = result['data']
+                    log_to_file('log.json', result)
+                    for reportedIp in result['reportedAddress']:
+                        if has_reputation(reportedIp):
+                            print(f"[-] Reported IP {reportedIp['ipAddress']} found.")
+                            reportedIpDetails = abuseipdb.check(reportedIp['ipAddress'])
+                            if 'errors' in reportedIpDetails:
+                                print_errors(reportedIpDetails)
+                            else:
+                                if 'netbox' in config:
+                                    reportedIpDetails = add_netbox_info(reportedIpDetails['data'])
+                                log_to_file('log.json', reportedIpDetails)
                             
     sleepTime = 60*60*24 
     print(f"[+] Waiting {sleepTime} seconds.")
