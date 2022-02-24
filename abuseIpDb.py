@@ -17,7 +17,7 @@ def split_cidr(cidr, minMask):
     if int(minMask) <= cidr.prefixlen:
         return [cidr.with_prefixlen]
     try:   
-        return cidr.subnets(new_prefix=int(minMask))
+        return [net.with_prefixlen for net in cidr.subnets(new_prefix=int(minMask))]
     except Exception as e:
         print(cidr,e)
         return []
