@@ -55,28 +55,31 @@ if 'netbox' in config:
 abuseipdb = AbuseIpDb(config['abuseipDB']['token'].strip())
 
 while True:
-    with open('cidr.txt','r') as cidrs:
-        for cidr in cidrs.readlines():
-            cidr = cidr.strip('\n')
-            print(f"[+] Checking {cidr}")
-            for cidr24 in split_cidr(cidr, '24'):
-                result = abuseipdb.check_block(cidr24)
-                if 'errors' in result:
-                    print_errors(result)
-                else:
-                    result = result['data']
-                    log_to_file('log.json', result)
-                    for reportedIp in result['reportedAddress']:
-                        if has_reputation(reportedIp):
-                            print(f"[-] Reported IP {reportedIp['ipAddress']} found.")
-                            reportedIpDetails = abuseipdb.check(reportedIp['ipAddress'])
-                            if 'errors' in reportedIpDetails:
-                                print_errors(reportedIpDetails)
-                            else:
-                                if 'netbox' in config:
-                                    reportedIpDetails = add_netbox_info(reportedIpDetails['data'])
-                                log_to_file('log.json', reportedIpDetails)
-                            
+    try:
+        with open('cidr.txt','r') as cidrs:
+            for cidr in cidrs.readlines():
+                cidr = cidr.strip('\n')
+                print(f"[+] Checking {cidr}")
+                for cidr24 in split_cidr(cidr, '24'):
+                    result = abuseipdb.check_block(cidr24)
+                    if 'errors' in result:
+                        print_errors(result)
+                    else:
+                        result = result['data']
+                        log_to_file('log.json', result)
+                        for reportedIp in result['reportedAddress']:
+                            if has_reputation(reportedIp):
+                                print(f"[-] Reported IP {reportedIp['ipAddress']} found.")
+                                reportedIpDetails = abuseipdb.check(reportedIp['ipAddress'])
+                                if 'errors' in reportedIpDetails:
+                                    print_errors(reportedIpDetails)
+                                else:
+                                    if 'netbox' in config:
+                                        reportedIpDetails = add_netbox_info(reportedIpDetails['data'])
+                                    log_to_file('log.json', reportedIpDetails)
+    except Exception as e:
+        print(f"[-] Error: {e}")
+                  
     sleepTime = 60*60*24 
     print(f"[+] Waiting {sleepTime} seconds.")
     sleep(sleepTime)
