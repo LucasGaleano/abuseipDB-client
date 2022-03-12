@@ -9,7 +9,7 @@ import ipaddress
 def log_to_file(file, data):
     with open(file,'a') as logfile:
         data['app'] = "abuseipDB"
-        logfile.write(str(data).replace("'",'"').replace("True","true").replace("False","false"))
+        logfile.write(str(data).replace("'",'"').replace("True","true").replace("False","false").replace('None','null'))
         logfile.write('\n')
 
 def split_cidr(cidr, minMask):
@@ -39,10 +39,10 @@ def add_netbox_info(reportedIp):
         reportedIp['netbox'] = {}
         reportedIp['netbox']['description'] = ip.description
         reportedIp['netbox']['dns_name'] = ip.dns_name
-        reportedIp['netbox']['status'] = ip.status
+        reportedIp['netbox']['status'] = str(ip.status)
         reportedIp['netbox']['tenant'] = ip.tenant
         reportedIp['netbox']['created'] = ip.created
-        reportedIp['netbox']['test'] = ip.address
+        reportedIp['netbox']['address'] = ip.address
     return reportedIp
 
 
@@ -74,8 +74,9 @@ while True:
                                 if 'errors' in reportedIpDetails:
                                     print_errors(reportedIpDetails)
                                 else:
+                                    reportedIpDetails = reportedIpDetails['data']
                                     if 'netbox' in config:
-                                        reportedIpDetails = add_netbox_info(reportedIpDetails['data'])
+                                        reportedIpDetails = add_netbox_info(reportedIpDetails)
                                     log_to_file('log.json', reportedIpDetails)
     except Exception as e:
         print(f"[-] Error: {e}")
