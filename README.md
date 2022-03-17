@@ -12,6 +12,8 @@ token = token_key
 host = https://example.com
 ```
 
+Don't forget the pip3 install -r requirements.txt
+
 ## What it does
 Checks all the networks in the file cidr.txt against abuseipDB API and records the IPs inside the networks with reputation score.
 The script also checks the IP with reputation against netbox if the api key is provide in the config file.
