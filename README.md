@@ -1,7 +1,7 @@
 # abuseipDB-client
 
 ## How it works
-Create a config file name absueipDB.conf with this information in the root directory. (there is a example file in the repository)
+Create a config file name abuseipDB.conf with this information in the root directory. (there is a example file in the repository)
 
 ```
 [abuseipDB]
