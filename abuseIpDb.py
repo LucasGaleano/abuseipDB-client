@@ -13,7 +13,10 @@ def log_to_file(file, data):
         logfile.write('\n')
 
 def split_cidr(cidr, minMask):
-    cidr = ipaddress.IPv4Network(cidr.strip('\n'))
+    if ':' in cidr:
+        cidr = ipaddress.IPv6Network(cidr.strip('\n'))
+    else:
+        cidr = ipaddress.IPv4Network(cidr.strip('\n'))
     if int(minMask) <= cidr.prefixlen:
         return [cidr.with_prefixlen]
     try:   
@@ -29,6 +32,22 @@ def print_errors(result):
 
 def has_reputation(reportedIp):
     return reportedIp['abuseConfidenceScore'] > 0
+
+def check_errors(result):
+    if 'errors' in result:
+        print_errors(result)
+        return None
+    return result['data']
+
+def check_ip(IP):
+    print(f"[-] Reported IP {IP['ipAddress']} found.")
+    reportedIpDetails = abuseipdb.check(IP['ipAddress'])
+    return check_errors(reportedIpDetails)
+
+
+def check_block(cidr):
+    result = abuseipdb.check_block(cidr)
+    return check_errors(result)
 
 def add_netbox_info(reportedIp):
     print(f"[+] Checking {reportedIp['ipAddress']} in Netbox.")
@@ -47,7 +66,7 @@ def add_netbox_info(reportedIp):
 
 
 config = configparser.ConfigParser()
-config.read('config')
+config.read('abuseipDB.conf')
 
 if 'netbox' in config:
     nb = pynetbox.api(config['netbox']['host'], token=config['netbox']['token'].strip())
@@ -61,62 +80,20 @@ while True:
                 cidr = cidr.strip('\n')
                 print(f"[+] Checking {cidr}")
                 for cidr24 in split_cidr(cidr, '24'):
-                    result = abuseipdb.check_block(cidr24)
-                    if 'errors' in result:
-                        print_errors(result)
-                    else:
-                        result = result['data']
+                    result = check_block(cidr24)
+                    if result:
                         log_to_file('log.json', result)
                         for reportedIp in result['reportedAddress']:
                             if has_reputation(reportedIp):
-                                print(f"[-] Reported IP {reportedIp['ipAddress']} found.")
-                                reportedIpDetails = abuseipdb.check(reportedIp['ipAddress'])
-                                if 'errors' in reportedIpDetails:
-                                    print_errors(reportedIpDetails)
-                                else:
-                                    reportedIpDetails = reportedIpDetails['data']
+                                reportedIpDetails = check_ip(reportedIp)
+                                if reportedIpDetails:
                                     if 'netbox' in config:
                                         reportedIpDetails = add_netbox_info(reportedIpDetails)
                                     log_to_file('log.json', reportedIpDetails)
+
     except Exception as e:
         print(f"[-] Error: {e}")
                   
     sleepTime = 60*60*24 
     print(f"[+] Waiting {sleepTime} seconds.")
     sleep(sleepTime)
-
-
-#block with no ip reported
-# {
-#     "networkAddress":"87.117.96.0",
-#     "netmask":"255.255.255.0",
-#     "minAddress":"87.117.96.1",
-#     "maxAddress":"87.117.96.254",
-#     "numPossibleHosts":254,
-#     "addressSpaceDesc":"Internet",
-#     "reportedAddress":[      
-#     ]
-# }
-
-#block with ip reported
-# {
-#    "networkAddress":"185.40.106.0",
-#    "netmask":"255.255.255.0",
-#    "minAddress":"185.40.106.1",
-#    "maxAddress":"185.40.106.254",
-#    "numPossibleHosts":254,
-#    "addressSpaceDesc":"Internet",
-#    "reportedAddress":[
-#       {
-#          "ipAddress":"185.40.106.117",
-#          "numReports":1,
-#          "mostRecentReport":"2022-01-21T01:48:38+00:00",
-#          "abuseConfidenceScore":4,
-#          "countryCode":"TR"
-#       }
-#    ]
-# }
-
-#IP with ip reputation
-#{'ipAddress': '185.40.106.117', 'numReports': 1, 'mostRecentReport': '2022-01-21T01:48:38+00:00', 'abuseConfidenceScore': 4, 'countryCode': 'TR'}
-
