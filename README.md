@@ -20,3 +20,12 @@ The script also checks the IP with reputation against netbox if the api key is p
 
 ## Logging
 The script will log all the events to log.json as a json format.
+
+You should use this config for the logrotate inside /etc/logrotate.d/okta
+```
+/path/to/file/log.json {
+    rotate 5
+    size 1G
+    copytruncate
+}
+```
