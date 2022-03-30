@@ -4,12 +4,13 @@ from time import sleep
 from abuseIpDbClient import AbuseIpDb
 import configparser
 import pynetbox
+import json
 import ipaddress
 
 def log_to_file(file, data):
     with open(file,'a') as logfile:
         data['app'] = "abuseipDB"
-        logfile.write(str(data).replace("'",'"').replace("True","true").replace("False","false").replace('None','null'))
+        logfile.write(json.dumps(data))
         logfile.write('\n')
 
 def split_cidr(cidr, minMask):
@@ -68,9 +69,11 @@ def add_netbox_info(reportedIp):
 config = configparser.ConfigParser()
 config.read('abuseipDB.conf')
 
+# Initialize netbox api
 if 'netbox' in config:
     nb = pynetbox.api(config['netbox']['host'], token=config['netbox']['token'].strip())
 
+# Initialize abusedbip API
 abuseipdb = AbuseIpDb(config['abuseipDB']['token'].strip())
 
 while True:
@@ -83,6 +86,7 @@ while True:
                     result = check_block(cidr24)
                     if result:
                         log_to_file('log.json', result)
+                        # Check for the reported IP inside the result.
                         for reportedIp in result['reportedAddress']:
                             if has_reputation(reportedIp):
                                 reportedIpDetails = check_ip(reportedIp)
@@ -93,7 +97,8 @@ while True:
 
     except Exception as e:
         print(f"[-] Error: {e}")
-                  
+
+    # Wait for 1 day.               
     sleepTime = 60*60*24 
     print(f"[+] Waiting {sleepTime} seconds.")
     sleep(sleepTime)
