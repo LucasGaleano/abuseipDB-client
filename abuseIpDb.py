@@ -60,7 +60,7 @@ def add_netbox_info(reportedIp):
         reportedIp['netbox']['description'] = ip.description
         reportedIp['netbox']['dns_name'] = ip.dns_name
         reportedIp['netbox']['status'] = str(ip.status)
-        reportedIp['netbox']['tenant'] = ip.tenant
+        reportedIp['netbox']['tenant'] = str(ip.tenant)
         reportedIp['netbox']['created'] = ip.created
         reportedIp['netbox']['address'] = ip.address
     return reportedIp
