@@ -28,6 +28,7 @@ The script will log all the events to log.json as a json format.
 You should use this config for the logrotate inside /etc/logrotate.d/okta
 ```
 /path/to/file/log.json {
+    su <user> <group>
     rotate 5
     size 1G
     copytruncate
