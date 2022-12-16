@@ -90,6 +90,9 @@ while True:
                         for reportedIp in result['reportedAddress']:
                             if has_reputation(reportedIp):
                                 reportedIpDetails = check_ip(reportedIp)
+                                # I put the value between array so Wazuh can read it as number.
+                                reportedIpDetails['abuseConfidenceScore'] = [{"score":reportedIpDetails['abuseConfidenceScore']}]
+
                                 if reportedIpDetails:
                                     if 'netbox' in config:
                                         reportedIpDetails = add_netbox_info(reportedIpDetails)
