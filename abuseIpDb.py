@@ -90,7 +90,7 @@ while True:
                         for reportedIp in result['reportedAddress']:
                             if has_reputation(reportedIp):
                                 reportedIpDetails = check_ip(reportedIp)
-                                # I put the value between array so Wazuh can read it as number.
+                                # I closed the value between an array so Wazuh can read it as number.
                                 reportedIpDetails['abuseConfidenceScore'] = [{"score":reportedIpDetails['abuseConfidenceScore']}]
 
                                 if reportedIpDetails:
