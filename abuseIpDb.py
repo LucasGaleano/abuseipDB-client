@@ -74,7 +74,7 @@ if 'netbox' in config:
     nb = pynetbox.api(config['netbox']['host'], token=config['netbox']['token'].strip())
 
 # Initialize abusedbip API
-abuseipdb = AbuseIpDb(config['abuseipDB']['token'].strip())
+abuseipdb = AbuseIpDb(config['abuseipDB']['token'].split(','))
 
 while True:
     try:
