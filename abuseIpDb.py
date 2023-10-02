@@ -92,6 +92,7 @@ while True:
                                 reportedIpDetails = check_ip(reportedIp)
                                 # I closed the value between an array so Wazuh can read it as number.
                                 reportedIpDetails['abuseConfidence'] = [{"score":reportedIpDetails['abuseConfidenceScore']}]
+                                reportedIpDetails['abuseipDB_url'] = f'https://www.abuseipdb.com/check/{reportedIpDetails["ipAddress"]}]'
 
                                 if reportedIpDetails:
                                     if 'netbox' in config:
