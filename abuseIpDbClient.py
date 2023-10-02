@@ -1,5 +1,5 @@
 import requests
-
+from random import choice
 
 class AbuseIpDb(object):
 
@@ -29,10 +29,10 @@ class AbuseIpDb(object):
     default = {"CONFIDENCE_MINIMUM": 100,
                "LIMIT": 10000}
 
-    def __init__(self, api_key, subscriber=False):
-        if not api_key:
+    def __init__(self, api_keys: list[str], subscriber=False):
+        if not api_keys:
             raise ValueError('An API key is required')
-        self._api_key = api_key
+        self._api_keys = api_keys
         self._subscriber = subscriber
 
     def __getattr__(self, name):
@@ -50,7 +50,7 @@ class AbuseIpDb(object):
         if endpoint not in KNOWN_ENDPOINTS.keys():
             msg = 'Unknown endpoint "{}"'
             raise NotImplementedError(msg.format(endpoint))
-        headers = {'Key': self._api_key, 'Accept': 'application/json'}
+        headers = {'Key': choice(self._api_keys), 'Accept': 'application/json'}
         response = requests.request(
             method=KNOWN_ENDPOINTS[endpoint],
             url=BASE_URL.format(endpoint=endpoint),
