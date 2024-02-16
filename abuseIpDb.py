@@ -6,6 +6,9 @@ import configparser
 import pynetbox
 import json
 import ipaddress
+import requests
+import re
+
 
 def log_to_file(file, data):
     with open(file,'a') as logfile:
@@ -64,10 +67,6 @@ def add_netbox_info(reportedIp):
         reportedIp['netbox']['created'] = ip.created
         reportedIp['netbox']['address'] = ip.address
     return reportedIp
-
-
-import requests
-import re
 
 
 def get_token(text):
@@ -129,9 +128,9 @@ while True:
                                 reportedIpDetails['abuseConfidence'] = [{"score":reportedIpDetails['abuseConfidenceScore']}]
                                 reportedIpDetails['abuseipDB_url'] = f'https://www.abuseipdb.com/check/{reportedIpDetails["ipAddress"]}'
                                 if config['abuseipDB']['user'] != "user":
-                                    result = takedown_IP(reportedIp, config['abuseipDB']['user'], config['abuseipDB']['password'])
+                                    result = takedown_IP(reportedIp['ipAddress'], config['abuseipDB']['user'], config['abuseipDB']['password'])
                                     if result:
-                                        print(f"[+] request takedown {reportedIp}")
+                                        print(f"[+] request takedown {reportedIp['ipAddress']}")
                                 if reportedIpDetails:
                                     if 'netbox' in config:
                                         reportedIpDetails = add_netbox_info(reportedIpDetails)
