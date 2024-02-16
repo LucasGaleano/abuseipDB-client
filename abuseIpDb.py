@@ -66,6 +66,41 @@ def add_netbox_info(reportedIp):
     return reportedIp
 
 
+import requests
+import re
+
+
+def get_token(text):
+    return re.search('token" value="(.*)"',text).group(1)
+
+
+def takedown_IP(IP, user, password):
+    url_login = 'https://www.abuseipdb.com/login'
+    data_login = {'_token': '',
+            'email': user,
+            'password': password}
+
+    headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+
+    s = requests.Session()
+    temp = s.get('https://www.abuseipdb.com/login', headers=headers)
+    data_login['_token'] = get_token(temp.text)
+
+    x = s.post(url_login, json = data_login, headers=headers)
+
+
+    temp = s.get('https://www.abuseipdb.com/takedown/'+IP, headers=headers)
+    url_takedown = 'https://www.abuseipdb.com/user/takedown-request'
+    data_takedown = {'_token': get_token(temp.text),
+            'details': '',
+            'ip': IP}
+
+    x = s.post(url_takedown, json = data_takedown, headers=headers)
+    
+    return x.text.find('alert-success') != -1
+
+
+
 config = configparser.ConfigParser()
 config.read('abuseipDB.conf')
 
@@ -93,7 +128,10 @@ while True:
                                 # I closed the value between an array so Wazuh can read it as number.
                                 reportedIpDetails['abuseConfidence'] = [{"score":reportedIpDetails['abuseConfidenceScore']}]
                                 reportedIpDetails['abuseipDB_url'] = f'https://www.abuseipdb.com/check/{reportedIpDetails["ipAddress"]}'
-
+                                if config['abuseipDB']['user'] != "user":
+                                    result = takedown_IP(reportedIp, config['abuseipDB']['user'], config['abuseipDB']['password'])
+                                    if result:
+                                        print(f"[+] request takedown {reportedIp}")
                                 if reportedIpDetails:
                                     if 'netbox' in config:
                                         reportedIpDetails = add_netbox_info(reportedIpDetails)

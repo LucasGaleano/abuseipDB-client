@@ -1,5 +1,7 @@
 [abuseipDB]
-token = token_key
+tokens = token_key
+user = user
+password = password
 
 [netbox]
 token = token_key
