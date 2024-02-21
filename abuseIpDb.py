@@ -10,11 +10,12 @@ import requests
 import re
 
 
-def log_to_file(file, data):
-    with open(file,'a') as logfile:
-        data['app'] = "abuseipDB"
-        logfile.write(json.dumps(data))
-        logfile.write('\n')
+def log_to_json(data):
+    # with open(file,'a') as logfile:
+    data['app'] = "abuseipDB"
+    print(json.dumps(data))
+        # logfile.write(json.dumps(data))
+        # logfile.write('\n')
 
 def split_cidr(cidr, minMask):
     if ':' in cidr:
@@ -32,7 +33,7 @@ def split_cidr(cidr, minMask):
 def print_errors(result):
     for error in result['errors']:
         print(f"[-] {error['detail']}") 
-        log_to_file('log.json',error) 
+        log_to_json(error) 
 
 def has_reputation(reportedIp):
     return reportedIp['abuseConfidenceScore'] > 0
@@ -119,7 +120,7 @@ while True:
                 for cidr24 in split_cidr(cidr, '24'):
                     result = check_block(cidr24)
                     if result:
-                        log_to_file('log.json', result)
+                        log_to_json(result)
                         # Check for the reported IP inside the result.
                         for reportedIp in result['reportedAddress']:
                             if has_reputation(reportedIp):
@@ -134,7 +135,7 @@ while True:
                                 if reportedIpDetails:
                                     if 'netbox' in config:
                                         reportedIpDetails = add_netbox_info(reportedIpDetails)
-                                    log_to_file('log.json', reportedIpDetails)
+                                    log_to_json(reportedIpDetails)
 
     except Exception as e:
         print(f"[-] Error: {e}")
