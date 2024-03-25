@@ -5,4 +5,5 @@ RUN pip install -r requirements.txt
 CMD ["python", "-u","./abuseIpDb.py"]
 
 
-#docker image rm -f testing; docker build --tag testing .
+#docker image rm -f abuseipdb; docker build --tag abuseipdb .
+#docker run -d --restart unless-stopped abuseipdb
