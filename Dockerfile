@@ -6,4 +6,4 @@ CMD ["python", "-u","./abuseIpDb.py"]
 
 
 #docker image rm -f abuseipdb; docker build --tag abuseipdb .
-#docker run -d --restart unless-stopped abuseipdb
+#docker run --rm abuseipdb | tee -a log.json
