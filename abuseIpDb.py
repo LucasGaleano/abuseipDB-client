@@ -1,6 +1,8 @@
 #! /usr/bin/env python3
 
 from time import sleep
+import time
+from datetime import datetime
 from abuseIpDbClient import AbuseIpDb
 import configparser
 import pynetbox
@@ -13,6 +15,7 @@ import re
 def log_to_json(data):
     # with open(file,'a') as logfile:
     data['app'] = "abuseipDB"
+    data['timestamp'] = datetime.isoformat(datetime.now())
     print(json.dumps(data))
         # logfile.write(json.dumps(data))
         # logfile.write('\n')
@@ -87,6 +90,7 @@ def takedown_IP(IP, user, password):
     data_login['_token'] = get_token(temp.text)
 
     x = s.post(url_login, json = data_login, headers=headers)
+    time.sleep(5)
 
 
     temp = s.get('https://www.abuseipdb.com/takedown/'+IP, headers=headers)
@@ -96,6 +100,7 @@ def takedown_IP(IP, user, password):
             'ip': IP}
 
     x = s.post(url_takedown, json = data_takedown, headers=headers)
+    time.sleep(5)
     
     return x.text.find('alert-success') != -1
 
