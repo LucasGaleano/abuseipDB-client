@@ -5,11 +5,11 @@ import time
 from datetime import datetime
 from abuseIpDbClient import AbuseIpDb
 import configparser
-import pynetbox
 import json
 import ipaddress
 import requests
 import re
+from cidr_parser import CIDRParser
 
 
 def log_to_json(data):
@@ -110,11 +110,32 @@ config = configparser.ConfigParser()
 config.read('abuseipDB.conf')
 
 # Initialize netbox api
-if 'netbox' in config:
-    nb = pynetbox.api(config['netbox']['host'], token=config['netbox']['token'].strip())
+# if 'netbox' in config:
+#     nb = pynetbox.api(config['netbox']['host'], token=config['netbox']['token'].strip())
 
 # Initialize abusedbip API
+#
 abuseipdb = AbuseIpDb(config['abuseipDB']['tokens'].split(','))
+
+
+
+while True:
+    with open('cidr.txt','r') as cidrs_file:
+        cidrs = CIDRParser(cidrs_file.readlines())
+
+    print(cidrs)
+    check_ip(reportedIp)
+
+    # for cidr in cidrs.readlines():
+    #     cidr = cidr.strip('\n')
+    #     print(cidr)
+
+
+    sleepTime = 60*60*24 
+    print(f"[+] Waiting {sleepTime} seconds.")
+    sleep(sleepTime)
+
+
 
 while True:
     try:

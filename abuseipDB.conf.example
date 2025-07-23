@@ -2,7 +2,3 @@
 tokens = token_key
 user = user
 password = password
-
-[netbox]
-token = token_key
-host = https://example.com
