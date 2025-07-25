@@ -2,29 +2,20 @@
 
 from time import sleep
 import time
-from datetime import datetime
 from abuseIpDbClient import AbuseIpDb
 import configparser
-import json
 import ipaddress
 import requests
 import re
 from cidr_parser import CIDRParser
+from loggingHelper import logger
 
-
-def log_to_json(data):
-    # with open(file,'a') as logfile:
-    data['app'] = "abuseipDB"
-    data['timestamp'] = datetime.isoformat(datetime.now())
-    print(json.dumps(data))
-        # logfile.write(json.dumps(data))
-        # logfile.write('\n')
 
 def split_cidr(cidr, minMask):
     if ':' in cidr:
-        cidr = ipaddress.IPv6Network(cidr.strip('\n'))
+        cidr = ipaddress.IPv6Network(cidr.strip('\n'), strict=False)
     else:
-        cidr = ipaddress.IPv4Network(cidr.strip('\n'))
+        cidr = ipaddress.IPv4Network(cidr.strip('\n'), strict=False)
     if int(minMask) <= cidr.prefixlen:
         return [cidr.with_prefixlen]
     try:   
@@ -36,7 +27,7 @@ def split_cidr(cidr, minMask):
 def print_errors(result):
     for error in result['errors']:
         print(f"[-] {error['detail']}") 
-        log_to_json(error) 
+        logger.log_to_json(error) 
 
 def has_reputation(reportedIp):
     return reportedIp['abuseConfidenceScore'] > 0
@@ -46,31 +37,6 @@ def check_errors(result):
         print_errors(result)
         return None
     return result['data']
-
-def check_ip(IP):
-    print(f"[-] Reported IP {IP['ipAddress']} found.")
-    reportedIpDetails = abuseipdb.check(IP['ipAddress'])
-    return check_errors(reportedIpDetails)
-
-
-def check_block(cidr):
-    result = abuseipdb.check_block(cidr)
-    return check_errors(result)
-
-def add_netbox_info(reportedIp):
-    print(f"[+] Checking {reportedIp['ipAddress']} in Netbox.")
-    netboxRequest = nb.ipam.ip_addresses.filter(address=reportedIp['ipAddress'])
-    ips = list(netboxRequest)
-    if ips:
-        ip = ips[0]
-        reportedIp['netbox'] = {}
-        reportedIp['netbox']['description'] = ip.description
-        reportedIp['netbox']['dns_name'] = ip.dns_name
-        reportedIp['netbox']['status'] = str(ip.status)
-        reportedIp['netbox']['tenant'] = str(ip.tenant)
-        reportedIp['netbox']['created'] = ip.created
-        reportedIp['netbox']['address'] = ip.address
-    return reportedIp
 
 
 def get_token(text):
@@ -104,69 +70,101 @@ def takedown_IP(IP, user, password):
     
     return x.text.find('alert-success') != -1
 
+    
+def is_address(valor: str) -> bool:
+    try:
+        ipaddress.ip_address(valor)
+        return True
+    except ValueError:
+        return False
+
+def is_network(valor: str) -> bool:
+    return not is_address(valor)
+
+def check_ip(cidr):
+    if is_network(cidr):
+        for cidr24 in split_cidr(cidr, '24'):
+            result = check_block(cidr24)
+            for reportedIp in result['reportedAddress']:
+                if has_reputation(reportedIp):
+                    reportedIpDetails = check_ip(reportedIp)
+
+    #print(f"[-] Reported IP {ip} found.")
+    reportedIpDetails = abuseipdb.check(ip)
+    return check_errors(reportedIpDetails)
+
+def return_ips_with_reputation(block):
+    ips = []
+    for cidr24 in split_cidr(block, '24'):
+        result = check_block(cidr24)
+        #print(result)
+        for reportedIp in result['reportedAddress']:
+            if has_reputation(reportedIp):
+                ips.append(reportedIp['ipAddress'])
+    return ips
+
+def check_block(cidr):
+    result = abuseipdb.check_block(cidr)
+    return check_errors(result)
 
 
 config = configparser.ConfigParser()
 config.read('abuseipDB.conf')
 
-# Initialize netbox api
-# if 'netbox' in config:
-#     nb = pynetbox.api(config['netbox']['host'], token=config['netbox']['token'].strip())
-
-# Initialize abusedbip API
-#
 abuseipdb = AbuseIpDb(config['abuseipDB']['tokens'].split(','))
+sleepTime = int(config['general']['sleep_time_sec']) 
+
+
+if __name__ == "__main__":
+    while True:
+        with open('cidr.txt','r') as cidrs_file:
+            cidrs = CIDRParser(cidrs_file.readlines())
+
+        for cidr in cidrs.cidr_strings:
+            ips = []
+            if is_network(cidr):
+                ips = return_ips_with_reputation(cidr)
+            else:
+                ips.append(cidr)
+            for ip in ips:
+                result = check_ip(ip)
+                logger.log_to_json(result)
+
+        print(f"[+] Waiting {sleepTime/60} min.")
+        sleep(sleepTime)
 
 
 
-while True:
-    with open('cidr.txt','r') as cidrs_file:
-        cidrs = CIDRParser(cidrs_file.readlines())
+# while True:
+#     try:
+#         with open('cidr.txt','r') as cidrs:
+#             for cidr in cidrs.readlines():
+#                 cidr = cidr.strip('\n')
+#                 print(f"[+] Checking {cidr}")
+#                 for cidr24 in split_cidr(cidr, '24'):
+#                     result = check_block(cidr24)
+#                     if result:
+#                         log_to_json(result)
+#                         # Check for the reported IP inside the result.
+#                         for reportedIp in result['reportedAddress']:
+#                             if has_reputation(reportedIp):
+#                                 reportedIpDetails = check_ip(reportedIp)
+#                                 # I closed the value between an array so Wazuh can read it as number.
+#                                 reportedIpDetails['abuseConfidence'] = [{"score":reportedIpDetails['abuseConfidenceScore']}]
+#                                 reportedIpDetails['abuseipDB_url'] = f'https://www.abuseipdb.com/check/{reportedIpDetails["ipAddress"]}'
+#                                 if config['abuseipDB']['user'] != "user":
+#                                     result = takedown_IP(reportedIp['ipAddress'], config['abuseipDB']['user'], config['abuseipDB']['password'])
+#                                     if result:
+#                                         print(f"[+] request takedown {reportedIp['ipAddress']}")
+#                                 if reportedIpDetails:
+#                                     if 'netbox' in config:
+#                                         reportedIpDetails = add_netbox_info(reportedIpDetails)
+#                                     log_to_json(reportedIpDetails)
 
-    print(cidrs)
-    check_ip(reportedIp)
+#     except Exception as e:
+#         print(f"[-] Error: {e}")
 
-    # for cidr in cidrs.readlines():
-    #     cidr = cidr.strip('\n')
-    #     print(cidr)
-
-
-    sleepTime = 60*60*24 
-    print(f"[+] Waiting {sleepTime} seconds.")
-    sleep(sleepTime)
-
-
-
-while True:
-    try:
-        with open('cidr.txt','r') as cidrs:
-            for cidr in cidrs.readlines():
-                cidr = cidr.strip('\n')
-                print(f"[+] Checking {cidr}")
-                for cidr24 in split_cidr(cidr, '24'):
-                    result = check_block(cidr24)
-                    if result:
-                        log_to_json(result)
-                        # Check for the reported IP inside the result.
-                        for reportedIp in result['reportedAddress']:
-                            if has_reputation(reportedIp):
-                                reportedIpDetails = check_ip(reportedIp)
-                                # I closed the value between an array so Wazuh can read it as number.
-                                reportedIpDetails['abuseConfidence'] = [{"score":reportedIpDetails['abuseConfidenceScore']}]
-                                reportedIpDetails['abuseipDB_url'] = f'https://www.abuseipdb.com/check/{reportedIpDetails["ipAddress"]}'
-                                if config['abuseipDB']['user'] != "user":
-                                    result = takedown_IP(reportedIp['ipAddress'], config['abuseipDB']['user'], config['abuseipDB']['password'])
-                                    if result:
-                                        print(f"[+] request takedown {reportedIp['ipAddress']}")
-                                if reportedIpDetails:
-                                    if 'netbox' in config:
-                                        reportedIpDetails = add_netbox_info(reportedIpDetails)
-                                    log_to_json(reportedIpDetails)
-
-    except Exception as e:
-        print(f"[-] Error: {e}")
-
-    # Wait for 1 day.               
-    sleepTime = 60*60*24 
-    print(f"[+] Waiting {sleepTime} seconds.")
-    sleep(sleepTime)
+#     # Wait for 1 day.               
+#     sleepTime = 60*60*24 
+#     print(f"[+] Waiting {sleepTime} seconds.")
+#     sleep(sleepTime)

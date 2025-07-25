@@ -1,4 +1,10 @@
+[general]
+sleep_time_sec = 3600
+
 [abuseipDB]
 tokens = token_key
 user = user
 password = password
+
+[logging]
+log_json = yes

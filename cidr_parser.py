@@ -27,3 +27,4 @@ class CIDRParser:
         """Verifica si una IP está dentro de alguno de los CIDRs."""
         ip_obj = ipaddress.ip_address(ip)
         return any(ip_obj in network for network in self.cidr_networks)
+
