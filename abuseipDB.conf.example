@@ -8,3 +8,8 @@ password = password
 
 [logging]
 log_json = yes
+
+[telegram]
+enable = no
+token = telegram_token
+chat_id = id

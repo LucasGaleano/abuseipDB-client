@@ -4,27 +4,58 @@ import ipaddress
 
 @dataclass
 class CIDRParser:
-    cidr_strings: List[str]
-    cidr_networks: List[ipaddress.IPv4Network] = field(init=False)
+    cidr_strings: List[str] = field(default_factory=list)
 
-    def __init__(self, cidr_strings: List[str]):
-        self.cidr_strings = []
-        for cidr in cidr_strings:
-            cidr = cidr.strip(' ').strip('\n')
+    # def __init__(self, cidr_strings: List[str]):
+    #     self.cidr_strings = []
+    #     for cidr in cidr_strings:
+    #         cidr = cidr.strip(' ').strip('\n')
+    #         self.add_cidr(cidr)
+
+    def add_cidr(self, cidr):
+        cidr = cidr.strip(' ').strip('\n')
+        if self.is_address(cidr) or self.is_network(cidr):
             self.cidr_strings.append(cidr)
-        self.__post_init__()  # llamado automáticamente
-
-    def __post_init__(self):
-        self.cidr_networks = []
-        for cidr in self.cidr_strings:
-            try:
-                network = ipaddress.ip_network(cidr, strict=False)
-                self.cidr_networks.append(network)
-            except ValueError as e:
-                raise ValueError(f"CIDR inválido: '{cidr}' - {e}")
+        else:
+            raise ValueError(f"[-] Error: invalid cidr {cidr}")
+    
 
     def contains(self, ip: str) -> bool:
         """Verifica si una IP está dentro de alguno de los CIDRs."""
         ip_obj = ipaddress.ip_address(ip)
         return any(ip_obj in network for network in self.cidr_networks)
 
+
+    @classmethod
+    def is_address(cls, valor: str) -> bool:
+        try:
+            ipaddress.ip_address(valor)
+            return True
+        except ValueError:
+            return False
+
+
+    @classmethod
+    def is_network(cls, valor: str) -> bool:
+        try:
+            net = ipaddress.ip_network(valor,strict=False)
+            if net.prefixlen == 32 or net.prefixlen == 128:
+                raise ValueError("Not red")
+            return True
+        except ValueError:
+            return False
+
+
+    @classmethod
+    def split_cidr(cls, cidr, minMask):
+        if ':' in cidr:
+            cidr = ipaddress.IPv6Network(cidr.strip('\n'), strict=False)
+        else:
+            cidr = ipaddress.IPv4Network(cidr.strip('\n'), strict=False)
+        if int(minMask) <= cidr.prefixlen:
+            return [cidr.with_prefixlen]
+        try:   
+            return [net.with_prefixlen for net in cidr.subnets(new_prefix=int(minMask))]
+        except Exception as e:
+            print(cidr,e)
+            return []

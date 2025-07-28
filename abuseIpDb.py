@@ -9,20 +9,10 @@ import requests
 import re
 from cidr_parser import CIDRParser
 from loggingHelper import logger
+from telegramClient import telegramClient
+from datetime import datetime
+import json
 
-
-def split_cidr(cidr, minMask):
-    if ':' in cidr:
-        cidr = ipaddress.IPv6Network(cidr.strip('\n'), strict=False)
-    else:
-        cidr = ipaddress.IPv4Network(cidr.strip('\n'), strict=False)
-    if int(minMask) <= cidr.prefixlen:
-        return [cidr.with_prefixlen]
-    try:   
-        return [net.with_prefixlen for net in cidr.subnets(new_prefix=int(minMask))]
-    except Exception as e:
-        print(cidr,e)
-        return []
 
 def print_errors(result):
     for error in result['errors']:
@@ -32,9 +22,10 @@ def print_errors(result):
 def has_reputation(reportedIp):
     return reportedIp['abuseConfidenceScore'] > 0
 
-def check_errors(result):
+def check_errors(result, errorMessage):
     if 'errors' in result:
         print_errors(result)
+        raise ValueError(errorMessage)
         return None
     return result['data']
 
@@ -70,65 +61,78 @@ def takedown_IP(IP, user, password):
     
     return x.text.find('alert-success') != -1
 
-    
-def is_address(valor: str) -> bool:
-    try:
-        ipaddress.ip_address(valor)
-        return True
-    except ValueError:
-        return False
 
-def is_network(valor: str) -> bool:
-    return not is_address(valor)
-
-def check_ip(cidr):
-    if is_network(cidr):
-        for cidr24 in split_cidr(cidr, '24'):
-            result = check_block(cidr24)
-            for reportedIp in result['reportedAddress']:
-                if has_reputation(reportedIp):
-                    reportedIpDetails = check_ip(reportedIp)
-
-    #print(f"[-] Reported IP {ip} found.")
+def check_ip(ip):
     reportedIpDetails = abuseipdb.check(ip)
-    return check_errors(reportedIpDetails)
+    logger.log_to_console(f'ip checked: {ip}')
+    return check_errors(reportedIpDetails,"Invalid IP to check in abuseipDB")
 
 def return_ips_with_reputation(block):
     ips = []
-    for cidr24 in split_cidr(block, '24'):
+    for cidr24 in CIDRParser.split_cidr(block, '24'):
         result = check_block(cidr24)
-        #print(result)
+        logger.log_to_console(f'block checked: {cidr24}')
+        # logger.log_to_console(result)
         for reportedIp in result['reportedAddress']:
             if has_reputation(reportedIp):
                 ips.append(reportedIp['ipAddress'])
+    logger.log_to_console(f'ips with reputation: {ips}')
     return ips
 
 def check_block(cidr):
     result = abuseipdb.check_block(cidr)
-    return check_errors(result)
+    return check_errors(result, 'invalid cidr to check in abuseipDB')
+
+def send_telegram_notification(message, title):
+    telegramResponse = telegram.sendMessage(message,title=title)
+    logger.log_to_json(telegramResponse)
+    if telegramResponse['ok']:
+        print('telegram notification sent')
 
 
 config = configparser.ConfigParser()
 config.read('abuseipDB.conf')
 
 abuseipdb = AbuseIpDb(config['abuseipDB']['tokens'].split(','))
-sleepTime = int(config['general']['sleep_time_sec']) 
+sleepTime = int(config['general']['sleep_time_sec'])
+
+
+if config['telegram']['enable'] == 'yes':
+    telegram = telegramClient(botToken=config['telegram']['token'], chatID=config['telegram']['chat_id'])
+
 
 
 if __name__ == "__main__":
     while True:
+        cidrs = CIDRParser()
         with open('cidr.txt','r') as cidrs_file:
-            cidrs = CIDRParser(cidrs_file.readlines())
+            for cidr in cidrs_file.readlines():
+                try:
+                    cidrs.add_cidr(cidr)
+                except Exception as e:
+                    print(e)
 
         for cidr in cidrs.cidr_strings:
             ips = []
-            if is_network(cidr):
+            if CIDRParser.is_network(cidr):
                 ips = return_ips_with_reputation(cidr)
             else:
                 ips.append(cidr)
             for ip in ips:
-                result = check_ip(ip)
-                logger.log_to_json(result)
+                try:
+                    logger.log_to_console(f'IP to check: {ip}')
+                    result = check_ip(ip)
+                    logger.log_to_console(f'result: {result}')
+                    result['app'] = "abuseipDB"
+                    result['timestamp'] = datetime.isoformat(datetime.now())
+                    result['abuseipDB_url'] = f'https://www.abuseipdb.com/check/{result["ipAddress"]}'
+
+                    if has_reputation(result):
+                        logger.log_to_json(result)
+                        if config['telegram']['enable'] == 'yes':
+                            send_telegram_notification(message=result, title="AbuseipDB")
+                except Exception as e:
+                    print(e)
 
         print(f"[+] Waiting {sleepTime/60} min.")
         sleep(sleepTime)
