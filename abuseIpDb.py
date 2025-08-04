@@ -23,6 +23,7 @@ def has_reputation(reportedIp):
     return reportedIp['abuseConfidenceScore'] > 0
 
 def check_errors(result, errorMessage):
+    print(result)
     if 'errors' in result:
         print_errors(result)
         raise ValueError(errorMessage)
@@ -34,7 +35,7 @@ def get_token(text):
     return re.search('token" value="(.*)"',text).group(1)
 
 
-def takedown_IP(IP, user, password):
+def takedown_IP(IP, user, password) -> str:
     url_login = 'https://www.abuseipdb.com/login'
     data_login = {'_token': '',
             'email': user,
@@ -58,8 +59,15 @@ def takedown_IP(IP, user, password):
 
     x = s.post(url_takedown, json = data_takedown, headers=headers)
     time.sleep(5)
-    
-    return x.text.find('alert-success') != -1
+
+    alreadyReportText = 'Takedown request already pending for this IP address.'
+    successfulText = 'alert-success'
+    if alreadyReportText != -1:
+        return alreadyReportText
+    if x.text.find(successfulText) != -1:
+        return "takedown successful"
+
+    raise ValueError("Error taking down the IP")
 
 
 def check_ip(ip):
@@ -93,13 +101,27 @@ def send_telegram_notification(message, title):
 config = configparser.ConfigParser()
 config.read('abuseipDB.conf')
 
-abuseipdb = AbuseIpDb(config['abuseipDB']['tokens'].split(','))
+abuseipdb = AbuseIpDb(config['abuseipDB']['token'].split(','))
 sleepTime = int(config['general']['sleep_time_sec'])
+telegramNotificationEnable = False
+takedownIPEnable = False
 
+try:
+    if config['telegram']['enable'] == 'yes':
+        telegram = telegramClient(botToken=config['telegram']['token'], chatID=config['telegram']['chat_id'])
+        telegramNotificationEnable = True
+        logger.log_to_json({"info":str("Telegram notification enable")})
+except:
+    logger.log_to_json({"info":str("Telegram notification disable")})
 
-if config['telegram']['enable'] == 'yes':
-    telegram = telegramClient(botToken=config['telegram']['token'], chatID=config['telegram']['chat_id'])
-
+try:
+    if config['takedown']['enable'] == 'yes':  
+        takedownUsername = config['takedown']['user']
+        takedownPassword = config['takedown']['password']
+        takedownIPEnable = True
+        logger.log_to_json({"info":str("IP takedown enable")})
+except:
+    logger.log_to_json({"info":str("IP takedown disable")})
 
 
 if __name__ == "__main__":
@@ -110,7 +132,7 @@ if __name__ == "__main__":
                 try:
                     cidrs.add_cidr(cidr)
                 except Exception as e:
-                    print(e)
+                    logger.log_to_json({"error":str(e)})
 
         for cidr in cidrs.cidr_strings:
             ips = []
@@ -129,10 +151,16 @@ if __name__ == "__main__":
 
                     if has_reputation(result):
                         logger.log_to_json(result)
-                        if config['telegram']['enable'] == 'yes':
+                        if telegramNotificationEnable:
                             send_telegram_notification(message=result, title="AbuseipDB")
+                        if takedownIPEnable:
+                            ip = result['ipAddress']
+                            takedownResult = takedown_IP(ip, takedownUsername, takedownPassword)
+                            if takedownResult:
+                                logger.log_to_json({"info":takedownResult,"ipAddress":result['ipAddress']})
+
                 except Exception as e:
-                    print(e)
+                    logger.log_to_json({"error":str(e)})
 
         print(f"[+] Waiting {sleepTime/60} min.")
         sleep(sleepTime)

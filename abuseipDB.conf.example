@@ -2,7 +2,11 @@
 sleep_time_sec = 3600
 
 [abuseipDB]
-tokens = token_key
+token = token_key
+
+
+[takedown]
+enable = yes
 user = user
 password = password
 
