@@ -17,7 +17,7 @@ class CIDRParser:
         if self.is_address(cidr) or self.is_network(cidr):
             self.cidr_strings.append(cidr)
         else:
-            raise ValueError(f"[-] Error: invalid cidr {cidr}")
+            raise ValueError(f"Invalid cidr {cidr}")
     
 
     def contains(self, ip: str) -> bool:

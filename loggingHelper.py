@@ -27,4 +27,4 @@ enableJson = True
 if config['logging']['log_json'] != 'yes':
     enableJson = False
 
-logger = loggerHelper(enableJson=enableJson, debug=True)
+logger = loggerHelper(enableJson=enableJson, debug=False)

@@ -17,3 +17,10 @@ log_json = yes
 enable = no
 token = telegram_token
 chat_id = id
+
+[jira]
+enable = no
+server = https://example.atlassian.net
+email = example@example.com
+token = token_key
+project = jira_project

@@ -10,13 +10,14 @@ import re
 from cidr_parser import CIDRParser
 from loggingHelper import logger
 from telegramClient import telegramClient
+from jiraClient import JiraClient
 from datetime import datetime
 import json
 
 
 def print_errors(result):
     for error in result['errors']:
-        print(f"[-] {error['detail']}") 
+        print(f"{error['detail']}") 
         logger.log_to_json(error) 
 
 def has_reputation(reportedIp):
@@ -62,7 +63,8 @@ def takedown_IP(IP, user, password) -> str:
 
     alreadyReportText = 'Takedown request already pending for this IP address.'
     successfulText = 'alert-success'
-    if alreadyReportText != -1:
+
+    if x.text.find(alreadyReportText) != -1:
         return alreadyReportText
     if x.text.find(successfulText) != -1:
         return "takedown successful"
@@ -98,6 +100,7 @@ def send_telegram_notification(message, title):
         print('telegram notification sent')
 
 
+
 config = configparser.ConfigParser()
 config.read('abuseipDB.conf')
 
@@ -105,12 +108,15 @@ abuseipdb = AbuseIpDb(config['abuseipDB']['token'].split(','))
 sleepTime = int(config['general']['sleep_time_sec'])
 telegramNotificationEnable = False
 takedownIPEnable = False
+jiraEnable = False
 
 try:
     if config['telegram']['enable'] == 'yes':
         telegram = telegramClient(botToken=config['telegram']['token'], chatID=config['telegram']['chat_id'])
         telegramNotificationEnable = True
         logger.log_to_json({"info":str("Telegram notification enable")})
+    else: 
+        logger.log_to_json({"info":str("Telegram notification disable")})
 except:
     logger.log_to_json({"info":str("Telegram notification disable")})
 
@@ -120,8 +126,23 @@ try:
         takedownPassword = config['takedown']['password']
         takedownIPEnable = True
         logger.log_to_json({"info":str("IP takedown enable")})
+    else:
+        logger.log_to_json({"info":str("IP takedown disable")})
 except:
     logger.log_to_json({"info":str("IP takedown disable")})
+
+try:
+    if config['jira']['enable'] == 'yes':
+        jira = JiraClient(config['jira']['server'], config['jira']['email'], config['jira']['token'])
+        jiraProject = config['jira']['project']
+        jira.jira.current_user()
+        jiraEnable = True
+        logger.log_to_json({"info":str("Jira integration enable")})
+    else:
+        logger.log_to_json({"info":str("Jira integration disable")})
+except Exception as e:
+    logger.log_to_json({"error":str(e)})
+    logger.log_to_json({"info":str("Jira integration disable")})
 
 
 if __name__ == "__main__":
@@ -154,10 +175,22 @@ if __name__ == "__main__":
                         if telegramNotificationEnable:
                             send_telegram_notification(message=result, title="AbuseipDB")
                         if takedownIPEnable:
-                            ip = result['ipAddress']
-                            takedownResult = takedown_IP(ip, takedownUsername, takedownPassword)
+                            takedownResult = takedown_IP(result['ipAddress'], takedownUsername, takedownPassword)
                             if takedownResult:
                                 logger.log_to_json({"info":takedownResult,"ipAddress":result['ipAddress']})
+                        if jiraEnable:
+                            match int(result["abuseConfidenceScore"]):
+                                case reputation if reputation < 10:
+                                    priority = "Low"
+                                case reputation if reputation < 30:
+                                    priority = "Medium"
+                                case _:
+                                    priority = "High"
+                            
+                            status = jira.update_ticket(ip=result['ipAddress'], description=result, priority=priority, project=jiraProject)
+                            logger.log_to_json({"info":"jira notification","ticket":status})
+
+                            
 
                 except Exception as e:
                     logger.log_to_json({"error":str(e)})
