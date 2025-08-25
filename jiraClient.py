@@ -8,13 +8,14 @@ class JiraClient():
         self.jira = JIRA(options=jira_options, basic_auth=(email, token))
 
 
-    def create_ticket(self, project, summary, description,priority="Medium"):
+    def create_ticket(self, project, summary, description,priority="Medium",customer=''):
         new_issue = self.jira.create_issue(
             project=project, 
             summary=summary,
             description=description, 
             priority={'name': priority},
-            issuetype={'name': 'Task'}
+            issuetype={'name': 'Task'},
+            labels=[customer]
         )
         return new_issue
 
@@ -33,13 +34,14 @@ class JiraClient():
         print(f'comment created on issue: {issue.key}')
 
 
-    def update_ticket(self, ip, description, priority, project):
+    def update_ticket(self, ip, description, priority, project, customer):
+        customer = customer.replace(' ','_')
         formatdescription = "\n".join(f"- *{k}*: {v}" for k, v in description.items())
         ticket = self.search_ticket_by_ip(project,ip)
         if ticket:
-            ticket.update(fields={'description': formatdescription, 'priority': {'name': priority}})
+            ticket.update(fields={'description': formatdescription, 'priority': {'name': priority}, "labels": [customer]})
             status = {"action": "update"}
         else:
-            ticket = self.create_ticket('IRM',f"[{ip}] on blacklist", description=formatdescription,priority=priority)
+            ticket = self.create_ticket('IRM',f"[{ip}] with reputation", description=formatdescription,priority=priority, customer=customer)
             status =  {"action": "created"}
         return status | {'Key':ticket.key, 'projectKey':ticket.fields.project.key, 'projectID':ticket.fields.project.id}

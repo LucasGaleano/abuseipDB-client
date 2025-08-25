@@ -4,18 +4,12 @@ import ipaddress
 
 @dataclass
 class CIDRParser:
-    cidr_strings: List[str] = field(default_factory=list)
+    cidr_dict: dict[str,str] = field(default_factory=dict)
 
-    # def __init__(self, cidr_strings: List[str]):
-    #     self.cidr_strings = []
-    #     for cidr in cidr_strings:
-    #         cidr = cidr.strip(' ').strip('\n')
-    #         self.add_cidr(cidr)
-
-    def add_cidr(self, cidr):
+    def add_cidr(self, cidr, customer:''):
         cidr = cidr.strip(' ').strip('\n')
         if self.is_address(cidr) or self.is_network(cidr):
-            self.cidr_strings.append(cidr)
+            self.cidr_dict[cidr] = customer
         else:
             raise ValueError(f"Invalid cidr {cidr}")
     

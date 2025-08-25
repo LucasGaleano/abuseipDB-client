@@ -95,7 +95,7 @@ def check_block(cidr):
 
 def send_telegram_notification(message, title):
     telegramResponse = telegram.sendMessage(message,title=title)
-    logger.log_to_json(telegramResponse)
+    logger.log_to_json({"info":"Telegram notification","message":message})
     if telegramResponse['ok']:
         print('telegram notification sent')
 
@@ -114,6 +114,7 @@ try:
     if config['telegram']['enable'] == 'yes':
         telegram = telegramClient(botToken=config['telegram']['token'], chatID=config['telegram']['chat_id'])
         telegramNotificationEnable = True
+        telegramThreshold = int(config['telegram']['threshold'])
         logger.log_to_json({"info":str("Telegram notification enable")})
     else: 
         logger.log_to_json({"info":str("Telegram notification disable")})
@@ -148,14 +149,22 @@ except Exception as e:
 if __name__ == "__main__":
     while True:
         cidrs = CIDRParser()
+        customer = ''
         with open('cidr.txt','r') as cidrs_file:
             for cidr in cidrs_file.readlines():
+                cidr = cidr.strip(' ').strip('\n') # remove endline
+                if cidr.startswith('['):
+                    customer = cidr.strip('[]')
+                    continue
+                if not cidr.strip(): # check empty line
+                    continue
                 try:
-                    cidrs.add_cidr(cidr)
+                    cidrs.add_cidr(cidr,customer)
                 except Exception as e:
                     logger.log_to_json({"error":str(e)})
 
-        for cidr in cidrs.cidr_strings:
+        for cidr, customer in cidrs.cidr_dict.items():
+            logger.log_to_json({"info":"checking cidr","cidr":cidr,'customer':customer})
             ips = []
             if CIDRParser.is_network(cidr):
                 ips = return_ips_with_reputation(cidr)
@@ -167,12 +176,13 @@ if __name__ == "__main__":
                     result = check_ip(ip)
                     logger.log_to_console(f'result: {result}')
                     result['app'] = "abuseipDB"
+                    result['customer'] = customer
                     result['timestamp'] = datetime.isoformat(datetime.now())
                     result['abuseipDB_url'] = f'https://www.abuseipdb.com/check/{result["ipAddress"]}'
 
                     if has_reputation(result):
-                        logger.log_to_json(result)
-                        if telegramNotificationEnable:
+                        logger.log_to_json({"info":"IP with reputation found","result":result})
+                        if telegramNotificationEnable and int(result['abuseConfidenceScore']) > telegramThreshold:
                             send_telegram_notification(message=result, title="AbuseipDB")
                         if takedownIPEnable:
                             takedownResult = takedown_IP(result['ipAddress'], takedownUsername, takedownPassword)
@@ -187,7 +197,7 @@ if __name__ == "__main__":
                                 case _:
                                     priority = "High"
                             
-                            status = jira.update_ticket(ip=result['ipAddress'], description=result, priority=priority, project=jiraProject)
+                            status = jira.update_ticket(ip=result['ipAddress'], description=result, priority=priority, project=jiraProject, customer=customer)
                             logger.log_to_json({"info":"jira notification","ticket":status})
 
                             
