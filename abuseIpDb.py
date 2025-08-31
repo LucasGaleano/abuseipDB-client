@@ -35,89 +35,89 @@ def check_errors(result, errorMessage):
 def get_token(text):
     return re.search('token" value="(.*)"',text).group(1)
 
-def takedown_IP(IP, user, password) -> str:
-    url_login = 'https://www.abuseipdb.com/login'
-
-    headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
-
-    session = HTMLSession()
-    temp = session.get(url_login, headers=headers)
-    temp.html.render(timeout=20, sleep=0)
-    token = get_token(temp.text)
-
-    data_login = {
-        "_token": token,
-        "email": user,
-        "password": password,
-    }
-
-    r = session.post(url_login, data=data_login, headers=headers)
-    time.sleep(5)
-
-
-    # GET takedown page
-    temp = session.get(f"https://www.abuseipdb.com/takedown/{IP}", headers=headers)
-    temp.html.render(timeout=20, sleep=0)
-    token = get_token(temp.text)
-
-    url_takedown = "https://www.abuseipdb.com/user/takedown-request"
-    data_takedown = {
-        "_token": token,
-        "details": "",
-        "ip": IP,
-    }
-
-    # POST takedown
-    x = session.post(url_takedown, data=data_takedown, headers=headers)
-    time.sleep(5)
-
-    alreadyReportText = 'Takedown request already pending for this IP address.'
-    successfulText = 'alert-success'
-
-    # Check result
-    if alreadyReportText in x.text:
-        return alreadyReportText
-    if successfulText in x.text:
-        return "takedown successful"
-
-    raise ValueError("Error taking down the IP")
-
-
-
 # def takedown_IP(IP, user, password) -> str:
 #     url_login = 'https://www.abuseipdb.com/login'
-#     data_login = {'_token': '',
-#             'email': user,
-#             'password': password}
 
 #     headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
 
-#     s = requests.Session()
-#     temp = s.get('https://www.abuseipdb.com/login', headers=headers)
-#     data_login['_token'] = get_token(temp.text)
+#     session = HTMLSession()
+#     temp = session.get(url_login, headers=headers)
+#     temp.html.render(timeout=20, sleep=0)
+#     token = get_token(temp.text)
 
-#     x = s.post(url_login, json = data_login, headers=headers)
+#     data_login = {
+#         "_token": token,
+#         "email": user,
+#         "password": password,
+#     }
+
+#     r = session.post(url_login, data=data_login, headers=headers)
 #     time.sleep(5)
 
 
-#     temp = s.get('https://www.abuseipdb.com/takedown/'+IP, headers=headers)
-#     url_takedown = 'https://www.abuseipdb.com/user/takedown-request'
-#     data_takedown = {'_token': get_token(temp.text),
-#             'details': '',
-#             'ip': IP}
+#     # GET takedown page
+#     temp = session.get(f"https://www.abuseipdb.com/takedown/{IP}", headers=headers)
+#     temp.html.render(timeout=20, sleep=0)
+#     token = get_token(temp.text)
 
-#     x = s.post(url_takedown, json = data_takedown, headers=headers)
+#     url_takedown = "https://www.abuseipdb.com/user/takedown-request"
+#     data_takedown = {
+#         "_token": token,
+#         "details": "",
+#         "ip": IP,
+#     }
+
+#     # POST takedown
+#     x = session.post(url_takedown, data=data_takedown, headers=headers)
 #     time.sleep(5)
 
 #     alreadyReportText = 'Takedown request already pending for this IP address.'
 #     successfulText = 'alert-success'
 
-#     if x.text.find(alreadyReportText) != -1:
+#     # Check result
+#     if alreadyReportText in x.text:
 #         return alreadyReportText
-#     if x.text.find(successfulText) != -1:
+#     if successfulText in x.text:
 #         return "takedown successful"
 
 #     raise ValueError("Error taking down the IP")
+
+
+
+def takedown_IP(IP, user, password) -> str:
+    url_login = 'https://www.abuseipdb.com/login'
+    data_login = {'_token': '',
+            'email': user,
+            'password': password}
+
+    headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+
+    s = requests.Session()
+    temp = s.get('https://www.abuseipdb.com/login', headers=headers)
+    data_login['_token'] = get_token(temp.text)
+
+    x = s.post(url_login, json = data_login, headers=headers)
+    time.sleep(5)
+
+
+    temp = s.get('https://www.abuseipdb.com/takedown/'+IP, headers=headers)
+    url_takedown = 'https://www.abuseipdb.com/user/takedown-request'
+    data_takedown = {'_token': get_token(temp.text),
+            'details': '',
+            'ip': IP}
+
+    x = s.post(url_takedown, json = data_takedown, headers=headers)
+    time.sleep(5)
+
+    alreadyReportText = 'Takedown request already pending for this IP address.'
+    successfulText = 'alert-success'
+
+    if x.text.find(alreadyReportText) != -1:
+        return alreadyReportText
+    if x.text.find(successfulText) != -1:
+        return "takedown successful"
+
+    raise ValueError("Error taking down the IP")
 
 
 def check_ip(ip):
