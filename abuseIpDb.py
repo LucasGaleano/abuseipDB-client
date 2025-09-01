@@ -5,7 +5,7 @@ import time
 from abuseIpDbClient import AbuseIpDb
 import configparser
 import ipaddress
-from requests_html import HTMLSession
+import requests
 import re
 from cidr_parser import CIDRParser
 from loggingHelper import logger
@@ -93,12 +93,18 @@ def takedown_IP(IP, user, password) -> str:
     headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
 
     s = requests.Session()
+
+    for cookie in s.cookies:
+        headers[cookie.name] = cookie.value
+
     temp = s.get('https://www.abuseipdb.com/login', headers=headers)
     data_login['_token'] = get_token(temp.text)
+
 
     x = s.post(url_login, json = data_login, headers=headers)
     time.sleep(5)
 
+    print(x.status_code)
 
     temp = s.get('https://www.abuseipdb.com/takedown/'+IP, headers=headers)
     url_takedown = 'https://www.abuseipdb.com/user/takedown-request'
