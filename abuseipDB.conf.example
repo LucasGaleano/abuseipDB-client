@@ -17,6 +17,7 @@ log_json = yes
 enable = no
 token = telegram_token
 chat_id = id
+threshold = 40
 
 [jira]
 enable = no
